@@ -7,6 +7,16 @@ import logging
 import requests
 from datetime import datetime
 
+"""
+Minecraft Server Updater
+------------------------
+A utility to check for Minecraft server updates, backup data, 
+and auto-update the server jar file.
+
+Author: Ascendin81
+"""
+
+
 # CONFIGURATION
 UPDATE_TO_SNAPSHOT = False
 MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
