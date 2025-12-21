@@ -219,7 +219,8 @@ def main():
     else:
         print("Server Isn't running or Server is already up to date.")
         print(f'Latest version is {target_ver}')
-        time.sleep(5)
+        time.sleep(2)
+        start_server()
 
 if __name__ == "__main__":
     main()
