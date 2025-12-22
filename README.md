@@ -1,4 +1,5 @@
 # Minecraft Server Auto-Updater
+**Version 1.0**
 
 A Python utility designed to keep your Minecraft server up-to-date with the latest official releases or snapshots from Mojang. It automates the entire update process: checking for new versions, safely stopping the server, backing up world data and the old server jar, downloading the new server executable, and restarting the server.
 
