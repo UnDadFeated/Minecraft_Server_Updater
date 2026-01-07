@@ -1,26 +1,34 @@
-# Minecraft Server Auto-Updater
-**Version 1.0**
+# Minecraft Server Updater & Installer
+**Version 2.0** | **Author: UnDadFeated**
 
-A Python utility designed to keep your Minecraft server up-to-date with the latest official releases or snapshots from Mojang. It automates the entire update process: checking for new versions, safely stopping the server, backing up world data and the old server jar, downloading the new server executable, and restarting the server.
+A generic Python utility designed to **Install**, **Update**, and **Manage** your Minecraft server. It supports **Windows & Linux**, and works with **Vanilla**, **Forge**, and **NeoForge** servers.
 
-## Features
+## Key Features
 
-*   **Automatic Version Detection**: Checks Mojang's version manifest for the latest Release or Snapshot.
-*   **Safe Updates**: Verifies file integrity using SHA1 hashes to ensure you only update when a new version is actually available.
+*   **Dual Mode: Installer & Updater**
+    *   **Installation**: Automatically detects if the server is missing and walks you through a clean install.
+    *   **Updates**: Checks Mojang's version manifest to keep your Vanilla server up-to-date.
+*   **Operating System Support**:
+    *   **Windows**: Auto-installs to your chosen directory.
+    *   **Linux**: Auto-installs to `/home/{username}/MCServer/`.
+*   **Multi-Loader Support**:
+    *   **Vanilla**: Auto-download and version matching.
+    *   **Forge & NeoForge**: Installer support (prompts for direct URL) and **Safe Update Protection** (avoids breaking modded servers).
+*   **Smart Dependencies**:
+    *   Checks for the correct Java version (Java 8, 16, 17, 21) based on the Minecraft version.
+    *   Auto-Generates `eula.txt` and startup scripts (`Manual_Run.bat` / `Manual_Run.sh`).
 *   **Automated Backups**:
-    *   Backs up the current `minecraft_server.jar` before replacing it.
-    *   Creates a timestamped backup of the `world` folder into `world_backups/` before applying updates.
-*   **Process Management**: Automatically stops the running Java server process and restarts it using your startup script.
+    *   Safe backups of `minecraft_server.jar` and the `world` folder before any major operations.
 
 ## Configuration
 
-Open `MS_Update.py` and adjust the configuration variables at the top of the file to match your environment:
+Open `MS_Update.py` to adjust optional settings:
 
 ```python
-UPDATE_TO_SNAPSHOT = False    # Set to True to update to snapshots
-BACKUP_DIR = 'world_backups'  # Directory for world backups
-SERVER_JAR = 'server.jar'     # Name of your server jar file
-START_BATCH_FILE = 'run.bat'  # Your server startup script
+UPDATE_TO_SNAPSHOT = False    # Set to True to update to snapshots (Vanilla only)
+BACKUP_DIR = 'world_backups'
+SERVER_JAR = 'minecraft_server.jar'
+START_BATCH_FILE = 'Manual_Run.bat'
 ```
 
 ## Usage
@@ -29,10 +37,12 @@ START_BATCH_FILE = 'run.bat'  # Your server startup script
     ```bash
     pip install requests
     ```
-2.  **Run the Script**:
+2.  **Run the Tool**:
     ```bash
     python MS_Update.py
     ```
+    *   *If no server is found*: It will launch the **Installer** wizard.
+    *   *If a server is found*: It will check for **Updates** (Vanilla) or ensure the server starts (Modded).
 
 ## Warning
-This script uses `TASKKILL /F /IM java.exe` to stop the server, which kills **all** running Java processes on the machine. Ensure this is safe for your server environment before running.
+The script uses OS-specific commands (`TASKKILL` on Windows, `pkill` on Linux) to stop the server before updates. Ensure this is safe for your environment.
