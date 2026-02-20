@@ -141,18 +141,33 @@ def save_current_version_name(version_name):
         logging.error(f"Failed to save version info: {e}")
 
 def stop_server():
-    """Stops the Minecraft server."""
+    """Stops the Minecraft server gracefully."""
     logging.info('Stopping server...')
     print('Stopping server...')
     
     # OS Specific Kill
-    if platform.system() == "Windows":
-        os.system("TASKKILL /F /IM java.exe")
-    else:
-        # Linux implementation - assumes simple kill for now, or pkill
-        os.system("pkill -f server.jar") # Risky but similar to existing windows logic
+    try:
+        if platform.system() == "Windows":
+            os.system(f'wmic process where "commandline like \'%{SERVER_JAR}%\'" call terminate >nul 2>&1')
+        else:
+            # Linux implementation
+            os.system(f"pkill -f {SERVER_JAR}")
+    except Exception as e:
+        logging.error(f"Failed to stop server: {e}")
         
-    time.sleep(3)
+    print('Waiting for server to stop...')
+    # Active wait for the jar to not be locked or process to end
+    max_wait = 30
+    for i in range(max_wait):
+        try:
+            # Try to rename the jar to itself as a simple lock check, if the system allows
+            if os.path.exists(SERVER_JAR):
+                os.rename(SERVER_JAR, SERVER_JAR)
+            break # Not locked
+        except OSError:
+            time.sleep(1)
+    else:
+        logging.warning("Server took too long to shutdown or file is still locked.")
 
 def backup_server_jar(current_sha):
     """Backs up the current server jar."""
@@ -172,7 +187,7 @@ def download_file(url, filename):
     print(f'Downloading {filename}...')
     try:
         headers = {'User-Agent': 'MinecraftServerUpdater/2.0'}
-        response = requests.get(url, headers=headers, stream=True)
+        response = requests.get(url, headers=headers, stream=True, timeout=10)
         response.raise_for_status()
         with open(filename, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -217,7 +232,7 @@ def start_server():
     
     if os.path.exists(START_BATCH_FILE):
         if platform.system() == "Windows":
-             os.system(f'start call {START_BATCH_FILE}')
+             os.system(f'start "" "{START_BATCH_FILE}"')
         else:
              # Make executable just in case
              os.system(f'chmod +x {START_BATCH_FILE}')
@@ -262,7 +277,7 @@ def install_logic():
         install_dir = f"/home/{username}/MCServer/"
     else:
         print(f"Unsupported OS: {os_type}")
-        return
+        sys.exit("Unsupported OS")
 
     # Create Directory
     if not os.path.exists(install_dir):
@@ -273,7 +288,18 @@ def install_logic():
             print(f"Error creating directory: {e}")
             return
     
-    # Change working directory to install_dir
+    # Change working directory to install_dir and migrate script
+    if os.path.abspath(install_dir) != os.path.abspath(os.getcwd()):
+        try:
+            # Copy self to the target directory if we're not running from it or it's a frozen executable
+            current_script = os.path.abspath(sys.argv[0])
+            dest_script = os.path.join(install_dir, os.path.basename(current_script))
+            if current_script != dest_script:
+                shutil.copy2(current_script, dest_script)
+                print(f"Copied {os.path.basename(current_script)} to new directory.")
+        except Exception as e:
+            print(f"Could not copy script/executable to {install_dir}: {e}")
+
     os.chdir(install_dir)
     
     # 2. Server Type Selection
@@ -317,7 +343,7 @@ def install_logic():
         # Find URL
         print("Fetching Vanilla version manifest...")
         try:
-            resp = requests.get(MANIFEST_URL)
+            resp = requests.get(MANIFEST_URL, timeout=10)
             data = resp.json()
             ver_url = None
             for v in data['versions']:
@@ -329,7 +355,7 @@ def install_logic():
                 print(f"Version {mc_version} not found in manifest.")
                 return
 
-            v_data = requests.get(ver_url).json()
+            v_data = requests.get(ver_url, timeout=10).json()
             download_url = v_data['downloads']['server']['url']
             
             if download_file(download_url, SERVER_JAR):
@@ -386,7 +412,7 @@ def create_startup_script(os_type, jar_name):
     """Creates a default startup script."""
     if os_type == "Windows":
         with open("Manual_Run.bat", "w") as f:
-            f.write(f"java -Xmx2048M -Xms1024M -jar {jar_name} nogui\nPAUSE")
+            f.write(f"java -Xmx2048M -Xms1024M -jar {jar_name} nogui\npause\n")
     else:
         with open("Manual_Run.sh", "w") as f:
             f.write("#!/bin/bash\n")
@@ -443,13 +469,17 @@ def update_logic():
         start_server()
 
 def main():
-    # Ensure we are working from the script's directory for detection
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    # Ensure we are working from the script's directory for detection safely
+    if getattr(sys, 'frozen', False):
+        app_path = os.path.dirname(sys.executable)
+    else:
+        app_path = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(app_path)
 
     # Check if we are in an installed environment 
-    # Logic: If 'server.properties' exists OR 'minecraft_server.jar' exists, we assume installed.
+    # Logic: If 'server.properties' exists OR 'minecraft_server.jar' exists OR 'eula.txt' exists, we assume installed.
     # Note: Forge often doesn't use minecraft_server.jar as the main entry, but creates one.
-    is_installed = os.path.exists(SERVER_JAR) or os.path.exists("server.properties")
+    is_installed = os.path.exists(SERVER_JAR) or os.path.exists("server.properties") or os.path.exists("eula.txt") or os.path.exists("server_type.txt")
     
     if is_installed:
         update_logic()
